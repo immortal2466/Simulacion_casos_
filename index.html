@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Movimiento Amortiguado — Tres Casos</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0c0f;
+    --surface: #13151a;
+    --surface2: #1c1f27;
+    --border: rgba(255,255,255,0.07);
+    --text: #f0eee8;
+    --muted: #7a7d89;
+    --blue: #4a9eff;
+    --blue-dim: rgba(74,158,255,0.12);
+    --coral: #ff6b4a;
+    --coral-dim: rgba(255,107,74,0.12);
+    --teal: #2dd4a0;
+    --teal-dim: rgba(45,212,160,0.12);
+    --accent-blue: #1a3a5c;
+    --accent-coral: #5c2a1a;
+    --accent-teal: #0f3d2d;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid de fondo */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 48px 24px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .header-eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  header h1 {
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 14px;
+  }
+
+  header p {
+    font-size: 15px;
+    color: var(--muted);
+    max-width: 480px;
+    margin: 0 auto;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+
+  .cases {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+
+  .case {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+
+  .case:hover { border-color: rgba(255,255,255,0.14); }
+
+  .case-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 16px;
+    padding: 24px 28px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .case-number {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  .case-0 .case-number { background: var(--blue-dim); color: var(--blue); }
+  .case-1 .case-number { background: var(--coral-dim); color: var(--coral); }
+  .case-2 .case-number { background: var(--teal-dim); color: var(--teal); }
+
+  .case-title { font-size: 18px; font-weight: 600; }
+  .case-lambda {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    text-align: right;
+    line-height: 1.6;
+  }
+
+  .case-body {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 0;
+  }
+
+  @media (max-width: 700px) {
+    .case-body { grid-template-columns: 1fr; }
+  }
+
+  .canvas-wrap {
+    padding: 24px 28px;
+    border-right: 1px solid var(--border);
+  }
+
+  @media (max-width: 700px) {
+    .canvas-wrap { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
+  canvas {
+    width: 100%;
+    display: block;
+    border-radius: 8px;
+    background: var(--surface2);
+  }
+
+  .controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    align-items: center;
+  }
+
+  .btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+
+  .btn:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+
+  .time-display {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  .side-info {
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .info-section {
+    margin-bottom: 20px;
+  }
+
+  .info-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .param-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .param-row:last-child { border-bottom: none; }
+
+  .param-key { color: var(--muted); font-weight: 400; }
+  .param-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .case-0 .param-val { color: var(--blue); }
+  .case-1 .param-val { color: var(--coral); }
+  .case-2 .param-val { color: var(--teal); }
+
+  .zeta-bar-wrap {
+    margin-top: 4px;
+  }
+
+  .zeta-bar-bg {
+    height: 4px;
+    background: rgba(255,255,255,0.07);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: visible;
+    position: relative;
+  }
+
+  .zeta-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    max-width: 100%;
+    transition: width 0.4s;
+  }
+
+  .case-0 .zeta-bar-fill { background: var(--blue); }
+  .case-1 .zeta-bar-fill { background: var(--coral); }
+  .case-2 .zeta-bar-fill { background: var(--teal); }
+
+  .phys-desc {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.65;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-weight: 400;
+  }
+
+  .example-tabs {
+    display: flex;
+    gap: 6px;
+    padding: 16px 28px 0;
+  }
+
+  .etab {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.2s;
+  }
+
+  .etab:hover { color: var(--text); }
+
+  .case-0 .etab.active { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); }
+  .case-1 .etab.active { background: var(--coral-dim); border-color: var(--coral); color: var(--coral); }
+  .case-2 .etab.active { background: var(--teal-dim); border-color: var(--teal); color: var(--teal); }
+
+  footer {
+    text-align: center;
+    margin-top: 56px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: rgba(255,255,255,0.18);
+    letter-spacing: 0.1em;
+  }
+
+  .solution-eq {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 8px;
+    padding: 10px 12px;
+    line-height: 1.7;
+    color: var(--text);
+    margin-bottom: 16px;
+    word-break: break-all;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="header-eyebrow">Ecuaciones Diferenciales — Sistemas Masa-Resorte-Amortiguador</div>
+    <h1>Movimiento Amortiguado<br>Tres Casos</h1>
+    <p>Visualización interactiva de los tipos de raíces de la ecuación característica y su comportamiento físico.</p>
+    <p>Alejandro Gutierrez </p>
+  </header>
+
+  <div class="cases">
+
+    <!-- CASO 0: Subamortiguado -->
+    <div class="case case-0" id="case0">
+      <div class="case-header">
+        <span class="case-number">CASO I</span>
+        <span class="case-title">Raíces complejas — Subamortiguado</span>
+        <span class="case-lambda">λ = α ± βi<br>ζ &lt; 1</span>
+      </div>
+      <div class="example-tabs" id="tabs0">
+        <button class="etab active" onclick="selectEx(0,0,this)">Suspensión</button>
+        <button class="etab" onclick="selectEx(0,1,this)">Péndulo</button>
+        <button class="etab" onclick="selectEx(0,2,this)">Edificio</button>
+      </div>
+      <div class="case-body">
+        <div class="canvas-wrap">
+          <canvas id="cv0" height="200"></canvas>
+          <div class="controls">
+            <button class="btn" id="pbtn0" onclick="togglePause(0)">⏸ PAUSAR</button>
+            <button class="btn" onclick="resetCase(0)">↺ REINICIAR</button>
+            <span class="time-display" id="td0">t = 0.00 s</span>
+          </div>
+        </div>
+        <div class="side-info">
+          <div class="info-section">
+            <div class="info-label">Parámetros</div>
+            <div id="params0"></div>
+          </div>
+          <div class="solution-eq" id="eq0"></div>
+          <div class="phys-desc" id="desc0"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CASO 1: Sobreamortiguado -->
+    <div class="case case-1" id="case1">
+      <div class="case-header">
+        <span class="case-number">CASO II</span>
+        <span class="case-title">Raíces reales distintas — Sobreamortiguado</span>
+        <span class="case-lambda">λ₁ ≠ λ₂ &lt; 0<br>ζ &gt; 1</span>
+      </div>
+      <div class="example-tabs" id="tabs1">
+        <button class="etab active" onclick="selectEx(1,0,this)">Hidráulico</button>
+        <button class="etab" onclick="selectEx(1,1,this)">Puerta</button>
+        <button class="etab" onclick="selectEx(1,2,this)">Galvanómetro</button>
+      </div>
+      <div class="case-body">
+        <div class="canvas-wrap">
+          <canvas id="cv1" height="200"></canvas>
+          <div class="controls">
+            <button class="btn" id="pbtn1" onclick="togglePause(1)">⏸ PAUSAR</button>
+            <button class="btn" onclick="resetCase(1)">↺ REINICIAR</button>
+            <span class="time-display" id="td1">t = 0.00 s</span>
+          </div>
+        </div>
+        <div class="side-info">
+          <div class="info-section">
+            <div class="info-label">Parámetros</div>
+            <div id="params1"></div>
+          </div>
+          <div class="solution-eq" id="eq1"></div>
+          <div class="phys-desc" id="desc1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CASO 2: Críticamente amortiguado -->
+    <div class="case case-2" id="case2">
+      <div class="case-header">
+        <span class="case-number">CASO III</span>
+        <span class="case-title">Raíces iguales — Críticamente amortiguado</span>
+        <span class="case-lambda">λ₁ = λ₂ = λ<br>ζ = 1</span>
+      </div>
+      <div class="example-tabs" id="tabs2">
+        <button class="etab active" onclick="selectEx(2,0,this)">Puerta auto.</button>
+        <button class="etab" onclick="selectEx(2,1,this)">Galvanómetro</button>
+        <button class="etab" onclick="selectEx(2,2,this)">Plataforma</button>
+      </div>
+      <div class="case-body">
+        <div class="canvas-wrap">
+          <canvas id="cv2" height="200"></canvas>
+          <div class="controls">
+            <button class="btn" id="pbtn2" onclick="togglePause(2)">⏸ PAUSAR</button>
+            <button class="btn" onclick="resetCase(2)">↺ REINICIAR</button>
+            <span class="time-display" id="td2">t = 0.00 s</span>
+          </div>
+        </div>
+        <div class="side-info">
+          <div class="info-section">
+            <div class="info-label">Parámetros</div>
+            <div id="params2"></div>
+          </div>
+          <div class="solution-eq" id="eq2"></div>
+          <div class="phys-desc" id="desc2"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>MOVIMIENTO AMORTIGUADO — ECUACIONES DIFERENCIALES ORDINARIAS - ALEJANDRO GUTIERREZ</footer>
+</div>
+
+<script>
+const COLORS = ['#4a9eff', '#ff6b4a', '#2dd4a0'];
+
+const allCases = [
+  [
+    { m:300, c:1200, k:20000, x0:0.1, v0:0,
+      name:'Suspensión de automóvil',
+      app:'Al pasar un tope, la carrocería rebota varias veces. La amortiguación es insuficiente para eliminar oscilaciones pero las reduce ciclo a ciclo.' },
+    { m:1, c:0.5, k:9.8, x0:0.3, v0:0,
+      name:'Péndulo con resistencia del aire',
+      app:'La fricción del aire es mínima, por lo que el péndulo oscila decenas de ciclos antes de detenerse. ζ muy pequeño implica disipación lenta.' },
+    { m:5000, c:8000, k:500000, x0:0.05, v0:0,
+      name:'Edificio con amortiguadores sísmicos',
+      app:'Tras el sismo el edificio oscila, pero los amortiguadores disipan energía en pocos ciclos. Diseño deliberadamente subamortiguado pero controlado.' }
+  ],
+  [
+    { m:1, c:10, k:9, x0:1, v0:0,
+      name:'Amortiguador hidráulico rígido',
+      app:'El pistón regresa lentamente a reposo sin el menor rebote. La alta viscosidad del fluido impide cualquier oscilación posible.' },
+    { m:5, c:50, k:50, x0:1, v0:0,
+      name:'Puerta de cierre lento',
+      app:'La puerta regresa muy despacio a su posición cerrada. No hay rebote, pero el proceso es notablemente más lento que el caso crítico óptimo.' },
+    { m:2, c:20, k:8, x0:1, v0:0,
+      name:'Galvanómetro sobreamortiguado',
+      app:'La aguja regresa a cero muy lentamente. Esto es indeseable en instrumentos de medición pues responde demasiado lento a cambios rápidos.' }
+  ],
+  [
+    { m:1, c:6, k:9, x0:2, v0:0,
+      name:'Puerta automática ideal',
+      app:'La puerta llega exactamente a la posición cerrada sin rebotar y en el menor tiempo posible. Diseño óptimo para puertas automáticas.' },
+    { m:0.5, c:2.828, k:4, x0:1, v0:0,
+      name:'Galvanómetro calibrado',
+      app:'La aguja responde lo más rápido posible sin sobrepasar la lectura. Balance ideal entre velocidad de respuesta y precisión de medición.' },
+    { m:100, c:200, k:100, x0:0.5, v0:0,
+      name:'Plataforma antisísmica',
+      app:'La plataforma retorna a equilibrio de manera óptima tras una perturbación, sin vibraciones residuales que puedan dañar el equipo montado.' }
+  ]
+];
+
+const selected = [0, 0, 0];
+const paused   = [false, false, false];
+const aframes  = [null, null, null];
+const t0s      = [null, null, null];
+const elapsed  = [0, 0, 0];
+
+function computeParams(tab, idx) {
+  const p = allCases[tab][idx];
+  const disc = p.c*p.c - 4*p.m*p.k;
+  const base = -p.c / (2*p.m);
+  let type, lam1, lam2, alpha, beta;
+  if (Math.abs(disc) < 1e-6) {
+    type = 'equal'; lam1 = lam2 = base;
+  } else if (disc > 0) {
+    type = 'distinct';
+    lam1 = (-p.c + Math.sqrt(disc)) / (2*p.m);
+    lam2 = (-p.c - Math.sqrt(disc)) / (2*p.m);
+  } else {
+    type = 'complex';
+    alpha = base;
+    beta  = Math.sqrt(-disc) / (2*p.m);
+  }
+  const zeta = p.c / (2*Math.sqrt(p.m * p.k));
+  return { ...p, disc, type, lam1, lam2, alpha, beta, zeta };
+}
+
+function xAt(t, pr) {
+  const { type, lam1, lam2, alpha, beta, x0, v0 } = pr;
+  if (type === 'equal') {
+    const C1 = x0, C2 = v0 - lam1*x0;
+    return (C1 + C2*t) * Math.exp(lam1*t);
+  } else if (type === 'distinct') {
+    const C1 = (v0 - lam2*x0) / (lam1 - lam2);
+    const C2 = (lam1*x0 - v0) / (lam1 - lam2);
+    return C1*Math.exp(lam1*t) + C2*Math.exp(lam2*t);
+  } else {
+    const C1 = x0, C2 = (v0 - alpha*x0) / beta;
+    return Math.exp(alpha*t) * (C1*Math.cos(beta*t) + C2*Math.sin(beta*t));
+  }
+}
+
+function getTmax(pr) {
+  if (pr.type === 'complex')   return Math.min(8*Math.PI / Math.abs(pr.beta), 25);
+  if (pr.type === 'distinct')  return Math.min(14 / Math.abs(pr.lam2), 25);
+  return Math.min(14 / Math.abs(pr.lam1), 25);
+}
+
+// Cache for static graph data per tab
+const graphCache = [null, null, null];
+
+function buildStaticGraph(tab) {
+  const cv  = document.getElementById('cv' + tab);
+  const pr  = computeParams(tab, selected[tab]);
+  const tmax = getTmax(pr);
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.parentElement.offsetWidth - 56;
+  const H = 200;
+  cv.width  = W * dpr;
+  cv.height = H * dpr;
+  cv.style.width  = W + 'px';
+  cv.style.height = H + 'px';
+
+  const padL=44, padR=14, padT=18, padB=28;
+  const pW = W - padL - padR;
+  const pH = H - padT - padB;
+
+  const N = 600;
+  let ymax = 1e-10;
+  const pts = [];
+  for (let i = 0; i <= N; i++) {
+    const t = (i/N)*tmax;
+    const y = xAt(t, pr);
+    pts.push([t, y]);
+    if (Math.abs(y) > ymax) ymax = Math.abs(y);
+  }
+
+  // Draw static content into an offscreen canvas
+  const off = document.createElement('canvas');
+  off.width = W * dpr; off.height = H * dpr;
+  const ctx = off.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const tx = t => padL + (t/tmax)*pW;
+  const ty = y => padT + pH/2 - (y/ymax)*(pH*0.46);
+
+  ctx.fillStyle = '#13151a';
+  ctx.beginPath(); roundRect(ctx, padL, padT, pW, pH, 6); ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const yg = -ymax + i*(2*ymax/4);
+    ctx.beginPath(); ctx.moveTo(padL, ty(yg)); ctx.lineTo(padL+pW, ty(yg)); ctx.stroke();
+  }
+  for (let i = 0; i <= 6; i++) {
+    const xg = padL + i*(pW/6);
+    ctx.beginPath(); ctx.moveTo(xg, padT); ctx.lineTo(xg, padT+pH); ctx.stroke();
+  }
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(padL, ty(0)); ctx.lineTo(padL+pW, ty(0)); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT+pH); ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = `${10}px Space Mono, monospace`;
+  ctx.textAlign = 'right';
+  ctx.fillText(ymax.toFixed(2), padL-4, padT+pH*0.04+4);
+  ctx.fillText('0', padL-4, ty(0)+4);
+  ctx.fillText((-ymax).toFixed(2), padL-4, padT+pH*0.96+4);
+  ctx.textAlign = 'center';
+  ctx.fillText('0', padL, padT+pH+18);
+  ctx.fillText(tmax.toFixed(1)+'s', padL+pW, padT+pH+18);
+
+  const color = COLORS[tab];
+  ctx.save();
+  ctx.beginPath(); roundRect(ctx, padL, padT, pW, pH, 6); ctx.clip();
+
+  ctx.strokeStyle = color + '40'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const [t,y] = pts[i];
+    if (i===0) ctx.moveTo(tx(t), ty(y)); else ctx.lineTo(tx(t), ty(y));
+  }
+  ctx.stroke();
+
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  for (let i = 0; i <= N; i++) {
+    const [t,y] = pts[i];
+    if (i===0) ctx.moveTo(tx(t), ty(y)); else ctx.lineTo(tx(t), ty(y));
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // Store cache
+  graphCache[tab] = { off, W, H, dpr, padL, padT, padR, padB, pW, pH, tmax, ymax, color, pr, tx, ty };
+}
+
+function drawCanvas(tab) {
+  const cache = graphCache[tab];
+  if (!cache) return;
+  const { off, W, H, dpr, padL, padT, pW, pH, tmax, ymax, color, pr, tx, ty } = cache;
+
+  const cv  = document.getElementById('cv' + tab);
+  const ctx = cv.getContext('2d');
+
+  // Blit static graph
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.drawImage(off, 0, 0);
+
+  // Animate dot only
+  const curT = elapsed[tab] % tmax;
+  const curY = xAt(curT, pr);
+  const cx_  = tx(curT);
+  const cy_  = ty(curY);
+
+  ctx.save();
+  ctx.scale(dpr, dpr);
+
+  ctx.strokeStyle = color + '50'; ctx.lineWidth = 1;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(cx_, padT); ctx.lineTo(cx_, padT+pH); ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.shadowColor = color; ctx.shadowBlur = 10;
+  ctx.beginPath(); ctx.arc(cx_, cy_, 5, 0, Math.PI*2);
+  ctx.fillStyle = color; ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+
+  document.getElementById('td'+tab).textContent = 't = ' + curT.toFixed(2) + ' s  |  x = ' + curY.toFixed(4);
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w, y, x+w, y+r, r);
+  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w, y+h, x+w-r, y+h, r);
+  ctx.lineTo(x+r, y+h); ctx.arcTo(x, y+h, x, y+h-r, r);
+  ctx.lineTo(x, y+r); ctx.arcTo(x, y, x+r, y, r);
+  ctx.closePath();
+}
+
+function renderSideInfo(tab) {
+  const idx = selected[tab];
+  const p   = allCases[tab][idx];
+  const pr  = computeParams(tab, idx);
+  const zetaPct = Math.min(pr.zeta * 80, 100);
+  const color   = COLORS[tab];
+
+  let paramsHTML = `
+    <div class="param-row"><span class="param-key">Masa m</span><span class="param-val">${p.m} kg</span></div>
+    <div class="param-row"><span class="param-key">Amortiguamiento c</span><span class="param-val">${p.c.toFixed(3)} N·s/m</span></div>
+    <div class="param-row"><span class="param-key">Rigidez k</span><span class="param-val">${p.k} N/m</span></div>
+    <div class="param-row"><span class="param-key">Factor ζ</span><span class="param-val">${pr.zeta.toFixed(3)}</span></div>`;
+
+  if (pr.type === 'complex') {
+    paramsHTML += `<div class="param-row"><span class="param-key">λ₁,₂</span><span class="param-val">${pr.alpha.toFixed(3)} ± ${pr.beta.toFixed(3)}i</span></div>`;
+    paramsHTML += `<div class="param-row"><span class="param-key">ω_d</span><span class="param-val">${pr.beta.toFixed(3)} rad/s</span></div>`;
+  } else if (pr.type === 'distinct') {
+    paramsHTML += `<div class="param-row"><span class="param-key">λ₁</span><span class="param-val">${pr.lam1.toFixed(4)}</span></div>`;
+    paramsHTML += `<div class="param-row"><span class="param-key">λ₂</span><span class="param-val">${pr.lam2.toFixed(4)}</span></div>`;
+  } else {
+    paramsHTML += `<div class="param-row"><span class="param-key">λ₁ = λ₂</span><span class="param-val">${pr.lam1.toFixed(4)}</span></div>`;
+  }
+
+  document.getElementById('params'+tab).innerHTML = paramsHTML;
+
+  let eq = '';
+  if (pr.type === 'complex') {
+    const C1 = pr.x0;
+    const C2 = (pr.v0 - pr.alpha*pr.x0) / pr.beta;
+    eq = `x(t) = e^(${pr.alpha.toFixed(3)}t) × [${C1.toFixed(3)}cos(${pr.beta.toFixed(3)}t) + ${C2.toFixed(3)}sin(${pr.beta.toFixed(3)}t)]`;
+  } else if (pr.type === 'distinct') {
+    const C1 = (pr.v0 - pr.lam2*pr.x0) / (pr.lam1 - pr.lam2);
+    const C2 = (pr.lam1*pr.x0 - pr.v0)  / (pr.lam1 - pr.lam2);
+    eq = `x(t) = ${C1.toFixed(3)}e^(${pr.lam1.toFixed(3)}t) + ${C2.toFixed(3)}e^(${pr.lam2.toFixed(3)}t)`;
+  } else {
+    const C1 = pr.x0, C2 = pr.v0 - pr.lam1*pr.x0;
+    eq = `x(t) = (${C1.toFixed(3)} + ${C2.toFixed(3)}t)e^(${pr.lam1.toFixed(3)}t)`;
+  }
+  document.getElementById('eq'+tab).textContent = eq;
+  document.getElementById('desc'+tab).textContent = p.app;
+}
+
+function anim(tab, ts) {
+  if (!paused[tab]) {
+    if (!t0s[tab]) t0s[tab] = ts;
+    elapsed[tab] = (ts - t0s[tab]) / 1000;
+  }
+  drawCanvas(tab);
+  aframes[tab] = requestAnimationFrame(t => anim(tab, t));
+}
+
+function startAnim(tab) {
+  if (aframes[tab]) cancelAnimationFrame(aframes[tab]);
+  t0s[tab] = null; elapsed[tab] = 0; paused[tab] = false;
+  document.getElementById('pbtn'+tab).textContent = '⏸ PAUSAR';
+  buildStaticGraph(tab);
+  aframes[tab] = requestAnimationFrame(ts => anim(tab, ts));
+}
+
+function togglePause(tab) {
+  paused[tab] = !paused[tab];
+  const btn = document.getElementById('pbtn'+tab);
+  if (paused[tab]) {
+    btn.textContent = '▶ REANUDAR';
+  } else {
+    t0s[tab] = performance.now() - elapsed[tab]*1000;
+    btn.textContent = '⏸ PAUSAR';
+  }
+}
+
+function resetCase(tab) {
+  startAnim(tab);
+}
+
+function selectEx(tab, idx, el) {
+  selected[tab] = idx;
+  document.querySelectorAll('#tabs'+tab+' .etab').forEach((b,i) => b.classList.toggle('active', i===idx));
+  renderSideInfo(tab);
+  startAnim(tab);
+}
+
+window.addEventListener('load', () => {
+  for (let i = 0; i < 3; i++) {
+    renderSideInfo(i);
+    startAnim(i);
+  }
+});
+
+window.addEventListener('resize', () => {
+  for (let i = 0; i < 3; i++) { buildStaticGraph(i); drawCanvas(i); }
+});
+</script>
+</body>
+</html>
